@@ -54,7 +54,7 @@
  * @link http://code.google.com/p/jsmin-php/
  */
 
-if ( ! class_exists( 'JSMIN' ) ) :
+if ( ! class_exists( 'JSMin' ) ) :
 class JSMin {
 	const ORD_LF            = 10;
 	const ORD_SPACE         = 32;
@@ -393,3 +393,4 @@ endif;
 if ( ! class_exists( 'JSMIN_UnterminatedRegExpException' ) ) :
 	class JSMin_UnterminatedRegExpException extends Exception {}
 endif;
+?>

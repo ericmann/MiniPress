@@ -9,6 +9,44 @@
  * @license http://www.gnu.org/licenses/gpl-2.0.html GPL2+
  */
 class MiniPress {
+	/**
+	 * Get a handle on the internal WP_Filesystem object so we can use it.
+	 *
+	 * @return bool|object WP_Filesystem class or false if unavailable.
+	 */
+	public static function filesystem() {
+		global $wp_filesystem;
+
+		require_once( ABSPATH . 'wp-admin/includes/file.php' );
+
+		// First, let's check to see if we have write access.  At the moment, only direct access and fopen/fwrite are supported.
+		$write_method = get_filesystem_method( array(), false );
+		if ( $write_method != 'direct' && $write_method != 'ftpsockets' ) {
+			return false;
+		}
+
+		if ( false === ( $creds = @request_filesystem_credentials( '' ) ) ) {
+			// If we get here, we don't have credentials. Rather than trying to concatenate things when we can't save them
+			// back to the filesystem, we just bail.
+			return false;
+		}
+
+		// Now we have some credentials, try to get the wp_filesystem running
+		if ( ! WP_Filesystem( $creds ) ) {
+			// Our credentials were no good, so bail.
+			return false;
+		}
+
+		return $wp_filesystem;
+	}
+
+	/**
+	 * Get an array of all scripts/styles queued in the header/footer.
+	 *
+	 * @param array $args Default arguments - 'queue' is either scripts or styles. 'location' is header or footer.
+	 *
+	 * @return array Queued handles
+	 */
 	public static function get_queued_handles( $args ) {
 		$defaults = array (
 			'queue'    => 'styles',
@@ -25,6 +63,11 @@ class MiniPress {
 			$queue = &$wp_styles;
 		}
 
+		// If nothing is queued, exit
+		if ( null == $queue ) {
+			return array();
+		}
+
 		//Get all the enqueued handles
 		$queued = $queue->queue;
 
@@ -35,15 +78,6 @@ class MiniPress {
 		foreach ($queued as $k=>$handle) {
 			/* Exclusions for All: */
 
-			//Exclude if it doesn't start with http (i.e. relative path -- admin-bar.css does this.)
-//			if ( substr( $queue->registered[$handle]->src, 0, 4 ) != 'http' )
-//				continue;
-
-			//Exclude if not from this domain
-//			$domainlen = strlen( home_url() );
-//			if ( substr( $queue->registered[$handle]->src, 0, $domainlen ) != home_url() )
-//				continue;
-
 			/* Exclusions for Styles */
 			if ($args['queue'] == 'styles' ) {
 				//Exclude if doesn't end in .css because it may be dynamic (uncacheable)
@@ -53,11 +87,16 @@ class MiniPress {
 
 
 			/* Exclusions for Scripts */
-//			if ($args['queue'] == 'scripts') {
+			if ($args['queue'] == 'scripts') {
 				//if this is a footer script, and we're not in the footer, skip.
-//				if ( isset($queue->registered[$handle]->extra['group']) && $args['location'] != 'footer')
-//					continue;
-//			}
+				if ( isset( $queue->registered[$handle]->extra['group'] ) && $args['location'] != 'footer' ) {
+					continue;
+				}
+
+				if ( ! isset( $queue->registered[$handle]->extra['group'] ) && $args['location'] == 'footer' ) {
+					continue;
+				}
+			}
 
 			//If we didn't skip over this item, we can assume we need to concat this handle.
 			$handles[] = $handle;
@@ -67,41 +106,46 @@ class MiniPress {
 	}
 
 	/**
+	 * Remove all queued scripts because they're already included in the concatenated version.
+	 *
+	 * @param string $hash Hash of the concatenated files that need to be removed.
+	 * @param string $type Either 'scripts' or 'styles.'
+	 */
+	public static function remove_queued_files( $hash, $type = 'scripts' ) {
+		$handles = get_option( "minipress_$hash", array() );
+
+		foreach( $handles as $handle ) {
+			switch( $type ) {
+				case 'scripts':
+					wp_dequeue_script( $handle );
+					break;
+				case 'styles':
+					wp_dequeue_style( $handle );
+					break;
+			}
+		}
+	}
+
+	/**
 	 * Concatenate queued files.
 	 *
 	 * Accepts an array of style or script handles that will be concatenated into a single file.
 	 * Returns the concatenated file name.
 	 *
 	 * @param array $args
-	 * @return string Filename hash.
+	 * @return bool|string Filename hash of false if something goes wrong.
 	 */
 	public static function concat_queued_files( $args ) {
-		global $wp_filesystem;
-
-		require_once( ABSPATH . 'wp-admin/includes/file.php' );
-
-		// okay, let's see about getting credentials
-		$url = wp_nonce_url('themes.php?page=otto','otto-theme-options');
-		if (false === ($creds = request_filesystem_credentials($url, '', false, false, array( 'save' ) ) ) ) {
-			// if we get here, then we don't have credentials yet,
-			// but have just produced a form for the user to fill in,
-			// so stop processing for now
-			return true; // stop the normal page form from displaying
-		}
-
-		// now we have some credentials, try to get the wp_filesystem running
-		if ( ! WP_Filesystem($creds) ) {
-			// our credentials were no good, ask the user for them again
-			request_filesystem_credentials($url, '', true, false, array( 'save' ) );
-			return true;
-		}
+		// If we can't use the filesystem, bail.
+		if ( false === ( $filesystem = self::filesystem() ) )
+			return false;
 
 		$cache_dir = wp_upload_dir();
 
 		$cache_dir = trailingslashit( $cache_dir['basedir'] ) . "cache";
 
-		if ( ! $wp_filesystem->is_dir( $cache_dir ) ) {
-			$wp_filesystem->mkdir( $cache_dir );
+		if ( ! $filesystem->is_dir( $cache_dir ) ) {
+			$filesystem->mkdir( $cache_dir );
 		}
 
 		$defaults = array(
@@ -131,13 +175,18 @@ class MiniPress {
 
 		$hash = md5( $hash );
 
+		if ( ! defined( 'SCRIPT_DEBUG' ) || SCRIPT_DEBUG == false ) {
+			$hash .= '-min';
+		}
+
 		$filename = "concat-$hash.$ext";
 
-		if ( $wp_filesystem->exists( "$cache_dir/$filename" ) )
+		if ( $filesystem->exists( "$cache_dir/$filename" ) )
 			return $filename;
 
 		// Get the content to create our cached file
 		$concatenated = '';
+		$concatenated_list = array();
 
 		foreach( $args['handles'] as $k=>$handle ) {
 			$src = $queue->registered[$handle]->src;
@@ -150,13 +199,23 @@ class MiniPress {
 			}
 
 			// Get the content of the file
-			$content = $wp_filesystem->get_contents( $src );
+			$content = $filesystem->get_contents( $src );
 
 			$concatenated .= $content;
+
+			$concatenated_list[] = $handle;
 		}
 
-		$wp_filesystem->put_contents( "$cache_dir/$filename", $concatenated, FS_CHMOD_FILE );
+		update_option( "minipress_$hash", $concatenated_list );
+
+		// If we're debugging, don't minify anything. Otherwise, minify all the things!
+		if ( ! defined( 'SCRIPT_DEBUG' ) || SCRIPT_DEBUG == false ) {
+			$concatenated = JSMin::minify( $concatenated );
+		}
+
+		$filesystem->put_contents( "$cache_dir/$filename", $concatenated, FS_CHMOD_FILE );
 
 		return $filename;
 	}
 }
+?>
