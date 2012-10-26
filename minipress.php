@@ -86,15 +86,15 @@ function minipress_concat_scripts() {
 	if ( count( $head_handles ) > 0 && $head_filename && $filesystem->exists( "$cache_dir/$head_filename" ) ) {
 		$hash = substr( $head_filename, 7 );
 		$hash = explode( '.', $hash )[0];
-		//MiniPress::remove_queued_files( $hash, 'scripts' );
-		//wp_enqueue_script( 'cached-script-header', "$cache_url/$head_filename", '', '' );
+		MiniPress::remove_queued_files( $hash, 'scripts' );
+		wp_enqueue_script( 'cached-script-header', "$cache_url/$head_filename", '', '' );
 	}
 
 	// Queue up the footer scripts.
 	if ( count( $footer_handles ) > 0 && $foot_filename && $filesystem->exists( "$cache_dir/$foot_filename" ) ) {
 		$hash = substr( $foot_filename, 7 );
 		$hash = explode( '.', $hash )[0];
-		//MiniPress::remove_queued_files( $hash, 'scripts' );
+		MiniPress::remove_queued_files( $hash, 'scripts' );
 		wp_enqueue_script( 'cached-script-footer', "$cache_url/$foot_filename", '', '', true );
 	}
 }
