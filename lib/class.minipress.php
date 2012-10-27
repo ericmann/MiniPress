@@ -316,7 +316,8 @@ class MiniPress {
 			// Queue up the footer scripts.
 			if ( $foot_filename && $filesystem->exists( "$cache_dir/$foot_filename" ) ) {
 				$hash = substr( $foot_filename, 7 );
-				$hash = explode( '.', $hash )[0];
+				$hashes = explode( '.', $hash );
+				$hash = $hashes[0];
 				self::remove_queued_files( $hash, 'scripts' );
 				wp_enqueue_script( 'cached-script-footer', "$cache_url/$foot_filename", '', '', true );
 			}
