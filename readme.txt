@@ -37,8 +37,8 @@ Search for "MiniPress" in the WordPress 'Plugins' menu.
 
 = How does SCRIPT_DEBUG work for developers? =
 
-If `SCRIPT_DEBUG` is set to true in the configuration file, then scripts will be concatenated but they will not be
-minified.
+If `SCRIPT_DEBUG` is set to true in the configuration file, then nothing will happen to your scripts.  They will not be
+concatenated or minified.
 
 = What about stylesheets? =
 

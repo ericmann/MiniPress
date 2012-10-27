@@ -91,13 +91,39 @@ class MiniPress {
 	}
 
 	/**
+	 * Add a single file to the concatenated output.
+	 *
+	 * @param object $queue             Queue from which to add the file.
+	 * @param string $handle            Handle of the script/style to add to the concatenated output.
+	 * @param string $concatenated      Concatenated output.
+	 * @param array  $concatenated_list List of handles added to the concatenated output.
+	 */
+	private static function concat_file( $queue, $handle, &$concatenated = '', &$concatenated_list = array() ) {
+		$src = $queue->registered[$handle]->src;
+		$ver = $queue->registered[$handle]->ver;
+		$media = $queue->registered[$handle]->args;
+
+		// If this is a relative file ...
+		if ( substr( $src, 0, 1 ) == '/' ) {
+			$src = home_url() . $src;
+		}
+
+		// Get the content of the file
+		$content = self::get_filesystem()->get_contents( $src );
+
+		$concatenated .= $content;
+
+		$concatenated_list[] = $handle;
+	}
+
+	/**
 	 * Get an array of all scripts/styles queued in the header/footer.
 	 *
 	 * @param array $args Default arguments - 'queue' is either scripts or styles. 'location' is header or footer.
 	 *
 	 * @return array Queued handles
 	 */
-	public static function get_queued_handles( $args ) {
+	private static function get_queued_handles( $args ) {
 		$defaults = array (
 			'queue'    => 'styles',
 			'location' => 'header',
@@ -138,7 +164,7 @@ class MiniPress {
 	 * @param string $hash Hash of the concatenated files that need to be removed.
 	 * @param string $type Either 'scripts' or 'styles.'
 	 */
-	public static function remove_queued_files( $hash, $type = 'scripts' ) {
+	private static function remove_queued_files( $hash, $type = 'scripts' ) {
 		$handles = get_option( "minipress_$hash", array() );
 
 		foreach( $handles as $handle ) {
@@ -162,7 +188,7 @@ class MiniPress {
 	 * @param array $args
 	 * @return bool|string Filename hash of false if something goes wrong.
 	 */
-	public static function concat_queued_files( $args ) {
+	private static function concat_queued_files( $args ) {
 		// If we can't use the filesystem, bail.
 		if ( false === ( $filesystem = self::get_filesystem() ) )
 			return false;
@@ -202,10 +228,6 @@ class MiniPress {
 
 		$hash = md5( $hash );
 
-		if ( ! defined( 'SCRIPT_DEBUG' ) || SCRIPT_DEBUG == false ) {
-			$hash .= '-min';
-		}
-
 		$filename = "concat-$hash.$ext";
 
 		if ( $filesystem->exists( "$cache_dir/$filename" ) )
@@ -231,30 +253,14 @@ class MiniPress {
 		return $filename;
 	}
 
-	private static function concat_file( $queue, $handle, &$concatenated = '', &$concatenated_list = array() ) {
-		$src = $queue->registered[$handle]->src;
-		$ver = $queue->registered[$handle]->ver;
-		$media = $queue->registered[$handle]->args;
-
-		// If this is a relative file ...
-		if ( substr( $src, 0, 1 ) == '/' ) {
-			$src = home_url() . $src;
-		}
-
-		// Get the content of the file
-		$content = self::get_filesystem()->get_contents( $src );
-
-		$concatenated .= $content;
-
-		$concatenated_list[] = $handle;
-	}
-
-	//queue_file( $queue, $handle, &$handles = array(), $type = 'scripts', $location = 'header'
-
 	/**
 	 * Concatenate header scripts in the header and footer scripts in the footer.
 	 */
 	public static function concat_scripts() {
+		// If SCRIPT_DEBUG is turned on, don't do anything
+		if ( defined( 'SCRIPT_DEBUG' ) && true == SCRIPT_DEBUG )
+			return;
+
 		// If we can't use the filesystem, bail.
 		if ( false === ( $filesystem = self::get_filesystem() ) )
 			return;
