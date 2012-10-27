@@ -290,7 +290,8 @@ class MiniPress {
 			// Queue up the header scripts
 			if ( $head_filename && $filesystem->exists( "$cache_dir/$head_filename" ) ) {
 				$hash = substr( $head_filename, 7 );
-				$hash = explode( '.', $hash )[0];
+				$hashes = explode( '.', $hash );
+				$hash = $hashes[0];
 				self::remove_queued_files( $hash, 'scripts' );
 				wp_enqueue_script( 'cached-script-header', "$cache_url/$head_filename", '', '' );
 			}
