@@ -43,6 +43,10 @@ For now they're left alone. This will (hopefully) come in a later version.
 Changelog
 ---------
 
+**0.2**
+
+- Handle script dependencies with concatenation.
+
 **0.1**
 
 - Initial release
@@ -56,6 +60,10 @@ Initial release
 
 Known Issues
 ------------
+
+**0.2**
+
+- If two scripts declare the same dependencies, that dependency will be included twice in the concatenated file.
 
 **0.1**
 
@@ -74,7 +82,7 @@ Additional Information
 
 **Tested up to:** 3.5
 
-**Stable tag:** 0.1
+**Stable tag:** 0.2
 
 **License:** GPLv2 or later
 

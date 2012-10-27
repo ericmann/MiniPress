@@ -9,35 +9,85 @@
  * @license http://www.gnu.org/licenses/gpl-2.0.html GPL2+
  */
 class MiniPress {
+	private static $fs = false;
+
 	/**
 	 * Get a handle on the internal WP_Filesystem object so we can use it.
 	 *
 	 * @return bool|object WP_Filesystem class or false if unavailable.
 	 */
-	public static function filesystem() {
-		global $wp_filesystem;
+	private static function get_filesystem() {
+		if ( false === self::$fs ) {
+			global $wp_filesystem;
 
-		require_once( ABSPATH . 'wp-admin/includes/file.php' );
+			require_once( ABSPATH . 'wp-admin/includes/file.php' );
 
-		// First, let's check to see if we have write access.  At the moment, only direct access and fopen/fwrite are supported.
-		$write_method = get_filesystem_method( array(), false );
-		if ( $write_method != 'direct' && $write_method != 'ftpsockets' ) {
-			return false;
+			// First, let's check to see if we have write access.  At the moment, only direct access and fopen/fwrite are supported.
+			$write_method = get_filesystem_method( array(), false );
+			if ( $write_method != 'direct' && $write_method != 'ftpsockets' ) {
+				self::$fs = false;
+				goto output;
+			}
+
+			if ( false === ( $creds = @request_filesystem_credentials( '' ) ) ) {
+				// If we get here, we don't have credentials. Rather than trying to concatenate things when we can't save them
+				// back to the filesystem, we just bail.
+				self::$fs = false;
+				goto output;
+			}
+
+			// Now we have some credentials, try to get the wp_filesystem running
+			if ( ! WP_Filesystem( $creds ) ) {
+				// Our credentials were no good, so bail.
+				self::$fs = false;
+				goto output;
+			}
+
+			self::$fs = $wp_filesystem;
 		}
 
-		if ( false === ( $creds = @request_filesystem_credentials( '' ) ) ) {
-			// If we get here, we don't have credentials. Rather than trying to concatenate things when we can't save them
-			// back to the filesystem, we just bail.
-			return false;
+		output:
+		return self::$fs;
+	}
+
+	/**
+	 * Get a list of all file handles to be queued for concatentation.
+	 *
+	 * This function will run iteratively to process any registered script dependencies.
+	 *
+	 * @param object $queue    WP_Dependency queue from which to process information.
+	 * @param string $handle   Name of the script/style to add to the concatenation queue.
+	 * @param array  $handles  Array of script/style handles to be concatenated.
+	 * @param string $type     Type of dependency to process - scripts or styles.
+	 * @param string $location Location to print HTML output - header or footer.
+	 */
+	private static function queue_file( $queue, $handle, &$handles = array(), $type = 'scripts', $location = 'header' ) {
+		/* Exclusions for Styles */
+		if ($type == 'styles' ) {
+			// Exclude if doesn't end in .css because it may be dynamic (uncacheable)
+			if (substr( $queue->registered[$handle]->src, -3) != 'css' )
+				return;
 		}
 
-		// Now we have some credentials, try to get the wp_filesystem running
-		if ( ! WP_Filesystem( $creds ) ) {
-			// Our credentials were no good, so bail.
-			return false;
+		/* Exclusions for Scripts */
+		if ($type == 'scripts') {
+			// If this is a footer script, and we're not in the footer, skip.
+			if ( isset( $queue->registered[$handle]->extra['group'] ) && $location != 'footer' ) {
+				return;
+			}
+
+			if ( ! isset( $queue->registered[$handle]->extra['group'] ) && $location == 'footer' ) {
+				return;
+			}
 		}
 
-		return $wp_filesystem;
+		// Handle any dependencies
+		foreach ( $queue->registered[$handle]->deps as $dependency ) {
+			self::queue_file( $queue, $dependency, $handles, $type, $location );
+		}
+
+		// If we didn't skip over this item, we can assume we need to concat this handle.
+		$handles[] = $handle;
 	}
 
 	/**
@@ -75,31 +125,8 @@ class MiniPress {
 		$handles = array();
 
 		//For each handle run through our exclusions check and put into concat array
-		foreach ($queued as $k=>$handle) {
-			/* Exclusions for All: */
-
-			/* Exclusions for Styles */
-			if ($args['queue'] == 'styles' ) {
-				//Exclude if doesn't end in .css because it may be dynamic (uncacheable)
-				if (substr( $queue->registered[$handle]->src, -3) != 'css' )
-					continue;
-			}
-
-
-			/* Exclusions for Scripts */
-			if ($args['queue'] == 'scripts') {
-				//if this is a footer script, and we're not in the footer, skip.
-				if ( isset( $queue->registered[$handle]->extra['group'] ) && $args['location'] != 'footer' ) {
-					continue;
-				}
-
-				if ( ! isset( $queue->registered[$handle]->extra['group'] ) && $args['location'] == 'footer' ) {
-					continue;
-				}
-			}
-
-			//If we didn't skip over this item, we can assume we need to concat this handle.
-			$handles[] = $handle;
+		foreach  ($queued as $k => $handle ) {
+			self::queue_file( $queue, $handle, $handles, $args['queue'], $args['location'] );
 		}
 
 		return $handles;
@@ -137,7 +164,7 @@ class MiniPress {
 	 */
 	public static function concat_queued_files( $args ) {
 		// If we can't use the filesystem, bail.
-		if ( false === ( $filesystem = self::filesystem() ) )
+		if ( false === ( $filesystem = self::get_filesystem() ) )
 			return false;
 
 		$cache_dir = wp_upload_dir();
@@ -188,22 +215,8 @@ class MiniPress {
 		$concatenated = '';
 		$concatenated_list = array();
 
-		foreach( $args['handles'] as $k=>$handle ) {
-			$src = $queue->registered[$handle]->src;
-			$ver = $queue->registered[$handle]->ver;
-			$media = $queue->registered[$handle]->args;
-
-			// If this is a relative file ...
-			if ( substr( $src, 0, 1 ) == '/' ) {
-				$src = home_url() . $src;
-			}
-
-			// Get the content of the file
-			$content = $filesystem->get_contents( $src );
-
-			$concatenated .= $content;
-
-			$concatenated_list[] = $handle;
+		foreach( $args['handles'] as $k => $handle ) {
+			self::concat_file( $queue, $handle, $concatenated, $concatenated_list );
 		}
 
 		update_option( "minipress_$hash", $concatenated_list );
@@ -216,6 +229,91 @@ class MiniPress {
 		$filesystem->put_contents( "$cache_dir/$filename", $concatenated, FS_CHMOD_FILE );
 
 		return $filename;
+	}
+
+	private static function concat_file( $queue, $handle, &$concatenated = '', &$concatenated_list = array() ) {
+		$src = $queue->registered[$handle]->src;
+		$ver = $queue->registered[$handle]->ver;
+		$media = $queue->registered[$handle]->args;
+
+		// If this is a relative file ...
+		if ( substr( $src, 0, 1 ) == '/' ) {
+			$src = home_url() . $src;
+		}
+
+		// Get the content of the file
+		$content = self::get_filesystem()->get_contents( $src );
+
+		$concatenated .= $content;
+
+		$concatenated_list[] = $handle;
+	}
+
+	//queue_file( $queue, $handle, &$handles = array(), $type = 'scripts', $location = 'header'
+
+	/**
+	 * Concatenate header scripts in the header and footer scripts in the footer.
+	 */
+	public static function concat_scripts() {
+		// If we can't use the filesystem, bail.
+		if ( false === ( $filesystem = self::get_filesystem() ) )
+			return;
+
+		$cache_dir = wp_upload_dir();
+
+		$cache_dir = trailingslashit( $cache_dir['basedir'] ) . "cache";
+
+		$cache_url = content_url( 'uploads/cache' );
+
+		//script handles in head.
+		$head_handles = self::get_queued_handles(
+			array(
+			     'queue'    => 'scripts',
+			     'location' => 'header',
+			)
+		);
+
+		if ( count( $head_handles ) > 0 ) {
+			$head_filename = self::concat_queued_files(
+				array(
+				     'queue'   => 'scripts',
+				     'handles' => $head_handles,
+				)
+			);
+
+			// Queue up the header scripts
+			if ( $head_filename && $filesystem->exists( "$cache_dir/$head_filename" ) ) {
+				$hash = substr( $head_filename, 7 );
+				$hash = explode( '.', $hash )[0];
+				self::remove_queued_files( $hash, 'scripts' );
+				wp_enqueue_script( 'cached-script-header', "$cache_url/$head_filename", '', '' );
+			}
+		}
+
+		//script handles in footer.
+		$footer_handles = self::get_queued_handles(
+			array(
+			     'queue'    => 'scripts',
+			     'location' => 'footer',
+			)
+		);
+
+		if ( count( $footer_handles ) > 0 ) {
+			$foot_filename = self::concat_queued_files(
+				array(
+				     'queue'   => 'scripts',
+				     'handles' => $footer_handles,
+				)
+			);
+
+			// Queue up the footer scripts.
+			if ( $foot_filename && $filesystem->exists( "$cache_dir/$foot_filename" ) ) {
+				$hash = substr( $foot_filename, 7 );
+				$hash = explode( '.', $hash )[0];
+				self::remove_queued_files( $hash, 'scripts' );
+				wp_enqueue_script( 'cached-script-footer', "$cache_url/$foot_filename", '', '', true );
+			}
+		}
 	}
 }
 ?>

@@ -4,7 +4,7 @@ Donate link: http://jumping-duck.com/wordpress/plugins/
 Tags: javascript, minify, concatenate
 Requires at least: 3.4.2
 Tested up to: 3.5
-Stable tag: 0.1
+Stable tag: 0.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,6 +46,9 @@ For now they're left alone. This will (hopefully) come in a later version.
 
 == Changelog ==
 
+= 0.2 =
+* Handle script dependencies with concatenation.
+
 = 0.1 =
 * Initial release
 
@@ -55,6 +58,9 @@ For now they're left alone. This will (hopefully) come in a later version.
 Initial release
 
 == Known Issues ==
+
+= 0.2 =
+* If two scripts declare the same dependencies, that dependency will be included twice in the concatenated file.
 
 = 0.1 =
 * Script dependencies are not automatically added to the concatenated script - they must be explicitly enqueued.
