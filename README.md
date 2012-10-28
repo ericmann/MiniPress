@@ -10,11 +10,11 @@ Concatenation merges multiple JavaScript files into one. This means the browser 
 
 Minification removes all unnecessary space from a file. This means you only download the content you actually need.
 
-To speed up your site, most developers will recommend you do both.  But it can be time-consuming and frustrating to set this
-up - particularly as you install new plugins on your site.
+To speed up your site, most developers will recommend you do both.  But it can be time-consuming and frustrating to set this up - particularly as you install new plugins on your site.
 
-Rather than forcing you to merge and minify files manually, this plugin will do it for you automatically.  No configuration
-is needed, just activate and go.
+Rather than forcing you to merge and minify files manually, this plugin will do it for you automatically.  No configuration is needed, just activate and go.
+
+This is very much a **beta version** of the plugin and is not expected to be stable. Please report any and all bugs to https://github.com/ericmann/MiniPress/issues
 
 Installation
 ------------
@@ -33,8 +33,7 @@ Frequently Asked Questions
 
 **How does SCRIPT_DEBUG work for developers?**
 
-If `SCRIPT_DEBUG` is set to true in the configuration file, then nothing will happen to your scripts.  They will not be
-concatenated or minified.
+If `SCRIPT_DEBUG` is set to true in the configuration file, then nothing will happen to your scripts.  They will not be concatenated or minified.
 
 **What about stylesheets?**
 
@@ -61,6 +60,9 @@ Initial release
 Known Issues
 ------------
 
+**0.3**
+- If two scripts declare the same dependencies, that dependency will be included twice in the concatenated file.
+
 **0.2**
 
 - If two scripts declare the same dependencies, that dependency will be included twice in the concatenated file.
@@ -82,7 +84,7 @@ Additional Information
 
 **Tested up to:** 3.5
 
-**Stable tag:** 0.2
+**Stable tag:** 0.3
 
 **License:** GPLv2 or later
 
