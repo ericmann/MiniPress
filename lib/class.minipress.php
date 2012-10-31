@@ -61,32 +61,38 @@ class MiniPress {
 	 * @param string $type     Type of dependency to process - scripts or styles.
 	 * @param string $location Location to print HTML output - header or footer.
 	 */
-	private static function queue_file( $queue, $handle, &$handles = array(), $type = 'scripts', $location = 'header' ) {
+	private static function queue_file( $queue, $handle, &$handles = array(), $type = 'scripts', $location = 'header', $force = false ) {
+		/* Exclude already processed files */
+		if ( in_array( $handle, $queue->done ) )
+			return;
+
 		/* Exclusions for Styles */
-		if ($type == 'styles' ) {
+		if ( $type == 'styles' ) {
 			// Exclude if doesn't end in .css because it may be dynamic (uncacheable)
 			if (substr( $queue->registered[$handle]->src, -3) != 'css' )
 				return;
 		}
 
 		/* Exclusions for Scripts */
-		if ($type == 'scripts') {
+		if ( $type == 'scripts' ) {
 			// If this is a footer script, and we're not in the footer, skip.
-			if ( isset( $queue->registered[$handle]->extra['group'] ) && $location != 'footer' ) {
+			if ( isset( $queue->registered[$handle]->extra['group'] ) && $location != 'footer' && ! $force ) {
 				return;
 			}
 
-			if ( ! isset( $queue->registered[$handle]->extra['group'] ) && $location == 'footer' ) {
+			if ( ! isset( $queue->registered[$handle]->extra['group'] ) && $location == 'footer' && ! $force ) {
 				return;
 			}
 		}
+
 
 		// Handle any dependencies
 		foreach ( $queue->registered[$handle]->deps as $dependency ) {
-			self::queue_file( $queue, $dependency, $handles, $type, $location );
+			self::queue_file( $queue, $dependency, $handles, $type, $location, true );
 		}
 
 		// If we didn't skip over this item, we can assume we need to concat this handle.
+		$queue->done[] = $handle;
 		$handles[] = $handle;
 	}
 
@@ -106,6 +112,13 @@ class MiniPress {
 		// If this is a relative file ...
 		if ( substr( $src, 0, 1 ) == '/' ) {
 			$src = home_url() . $src;
+		}
+
+		// Handle script dependencies
+		if ( is_a( $queue, 'WP_Scripts' ) ) {
+			if ( $output = $queue->get_data( $handle, 'data' ) ) {
+				$concatenated .= $output;
+			}
 		}
 
 		// Get the content of the file
@@ -243,10 +256,7 @@ class MiniPress {
 
 		update_option( "minipress_$hash", $concatenated_list );
 
-		// If we're debugging, don't minify anything. Otherwise, minify all the things!
-		if ( ! defined( 'SCRIPT_DEBUG' ) || SCRIPT_DEBUG == false ) {
-			$concatenated = JSMin::minify( $concatenated );
-		}
+		$concatenated = JSMin::minify( $concatenated );
 
 		$filesystem->put_contents( "$cache_dir/$filename", $concatenated, FS_CHMOD_FILE );
 
