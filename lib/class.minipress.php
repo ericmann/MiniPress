@@ -256,7 +256,14 @@ class MiniPress {
 
 		update_option( "minipress_$hash", $concatenated_list );
 
-		$concatenated = JSMin::minify( $concatenated );
+		switch( $args['queue'] ) {
+			case 'scripts':
+				$concatenated = JSMin::minify( $concatenated );
+				break;
+			case 'styles':
+				$concatenated = Minify_CSS_Compressor::process( $concatenated );
+				break;
+		}
 
 		$filesystem->put_contents( "$cache_dir/$filename", $concatenated, FS_CHMOD_FILE );
 
@@ -268,6 +275,10 @@ class MiniPress {
 	 * Concatenate header scripts in the header and footer scripts in the footer.
 	 */
 	public static function concat_scripts() {
+		// If we're debugging, bail
+		if ( defined( 'SCRIPT_DEBUG' ) && true == SCRIPT_DEBUG )
+			return;
+
 		// If we can't use the filesystem, bail.
 		if ( false === ( $filesystem = self::get_filesystem() ) )
 			return;
@@ -278,43 +289,41 @@ class MiniPress {
 
 		$cache_url = content_url( 'uploads/cache' );
 
-		// If SCRIPT_DEBUG is turned on, don't do anything to scripts
-		if ( ! defined( 'SCRIPT_DEBUG' ) || false == SCRIPT_DEBUG ) {
-			//script handles in head.
-			$head_handles = self::get_queued_handles(
+		//script handles in head.
+		$head_handles = self::get_queued_handles(
 				array(
 				     'queue'    => 'scripts',
 				     'location' => 'header',
 				)
 			);
 
-			if ( count( $head_handles ) > 0 ) {
-				$head_filename = self::concat_queued_files(
-					array(
-					     'queue'   => 'scripts',
-					     'handles' => $head_handles,
-					)
-				);
+		if ( count( $head_handles ) > 0 ) {
+			$head_filename = self::concat_queued_files(
+				array(
+				     'queue'   => 'scripts',
+				     'handles' => $head_handles,
+				)
+			);
 
-				// Queue up the header scripts
-				if ( $head_filename && $filesystem->exists( "$cache_dir/$head_filename" ) ) {
-					$hash = substr( $head_filename, 7 );
-					$hashes = explode( '.', $hash );
-					$hash = $hashes[0];
-					self::remove_queued_files( $hash, 'scripts' );
-					wp_enqueue_script( 'cached-script-header', "$cache_url/$head_filename", '', '' );
-				}
+			// Queue up the header scripts
+			if ( $head_filename && $filesystem->exists( "$cache_dir/$head_filename" ) ) {
+				$hash = substr( $head_filename, 7 );
+				$hashes = explode( '.', $hash );
+				$hash = $hashes[0];
+				self::remove_queued_files( $hash, 'scripts' );
+				wp_enqueue_script( 'cached-script-header', "$cache_url/$head_filename", '', '' );
 			}
+		}
 
-			//script handles in footer.
-			$footer_handles = self::get_queued_handles(
+		//script handles in footer.
+		$footer_handles = self::get_queued_handles(
 				array(
 				     'queue'    => 'scripts',
 				     'location' => 'footer',
 				)
 			);
 
-			if ( count( $footer_handles ) > 0 ) {
+		if ( count( $footer_handles ) > 0 ) {
 				$foot_filename = self::concat_queued_files(
 					array(
 					     'queue'   => 'scripts',
@@ -331,11 +340,46 @@ class MiniPress {
 					wp_enqueue_script( 'cached-script-footer', "$cache_url/$foot_filename", '', '', true );
 				}
 			}
-		}
+	}
 
-		// If WP_DEBUG is turned on, don't do anything to styles
-		if ( ! defined( 'WP_DEBUG' ) || false == WP_DEBUG ) {
+	public static function concat_styles() {
+		// If we're debugging, bail
+		if ( defined( 'STYLE_DEBUG' ) && true == STYLE_DEBUG )
+			return;
 
+		// If we can't use the filesystem, bail.
+		if ( false === ( $filesystem = self::get_filesystem() ) )
+			return;
+
+		$cache_dir = wp_upload_dir();
+
+		$cache_dir = trailingslashit( $cache_dir['basedir'] ) . "cache";
+
+		$cache_url = content_url( 'uploads/cache' );
+
+		//style handles in head.
+		$handles = self::get_queued_handles(
+			array(
+			     'queue' => 'styles',
+			)
+		);
+
+		if ( count( $handles ) > 0 ) {
+			$style_filename = self::concat_queued_files(
+				array(
+				     'queue'   => 'styles',
+				     'handles' => $handles,
+				)
+			);
+
+			// Queue up the header scripts
+			if ( $style_filename && $filesystem->exists( "$cache_dir/$style_filename" ) ) {
+				$hash = substr( $style_filename, 7 );
+				$hashes = explode( '.', $hash );
+				$hash = $hashes[0];
+				self::remove_queued_files( $hash, 'styles' );
+				wp_enqueue_style( 'cached-styles', "$cache_url/$style_filename", '', '' );
+			}
 		}
 	}
 }

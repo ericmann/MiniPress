@@ -42,4 +42,5 @@ function minipress_init() {
 // Wireup actions
 add_action( 'init',               'minipress_init' );
 add_action( 'wp_enqueue_scripts', array( 'MiniPress', 'concat_scripts' ), '99' );
+add_action( 'wp_enqueue_scripts', array( 'MiniPress', 'concat_styles' ),  '99' );
 ?>
