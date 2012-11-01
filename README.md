@@ -37,10 +37,18 @@ If `SCRIPT_DEBUG` is set to true in the configuration file, then nothing will ha
 
 **What about stylesheets?**
 
-For now they're left alone. This will (hopefully) come in a later version.
+Yep, they're concatenated and minified now, too. To turn this functionality off, declare `STYLE_DEBUG` in `wp-config.php` and set it to true.
 
 Changelog
 ---------
+
+**0.4**
+
+- Add CSS minification.
+
+**0.3**
+
+- Update documentation before release to WordPress.org.
 
 **0.2**
 
@@ -60,7 +68,12 @@ Initial release
 Known Issues
 ------------
 
+**0.4**
+
+- None at this time.
+
 **0.3**
+
 - If two scripts declare the same dependencies, that dependency will be included twice in the concatenated file.
 
 **0.2**
@@ -84,7 +97,7 @@ Additional Information
 
 **Tested up to:** 3.5
 
-**Stable tag:** 0.3
+**Stable tag:** 0.4
 
 **License:** GPLv2 or later
 
