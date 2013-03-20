@@ -42,6 +42,10 @@ Yep, they're concatenated and minified now, too. To turn this functionality off,
 Changelog
 ---------
 
+**0.5**
+
+- Remove `goto` statements.
+
 **0.4**
 
 - Add CSS minification.
@@ -67,6 +71,10 @@ Initial release
 
 Known Issues
 ------------
+
+**0.5**
+
+- CSS that includes images with a relative directory will break as generated CSS files are placed in a different folder.
 
 **0.4**
 

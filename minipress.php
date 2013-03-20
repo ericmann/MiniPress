@@ -3,14 +3,14 @@
  * Plugin Name: MiniPress
  * Plugin URI: http://jumping-duck.com/wordpress/plugins/minipress
  * Description: Automatically concatenates and minifies all enqueued scripts upon pageload.
- * Version: 0.4
+ * Version: 0.5
  * Author: Eric Mann
  * Author URI: http://eamann.com
  * License: GPLv2+
  */
 
 /**
- * Copyright 2012  Eric Mann, Jumping Duck Media
+ * Copyright 2012-2013  Eric Mann, Jumping Duck Media
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2 or, at

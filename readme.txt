@@ -4,7 +4,7 @@ Donate link: http://jumping-duck.com/wordpress/plugins/
 Tags: javascript, minify, concatenate
 Requires at least: 3.4.2
 Tested up to: 3.5
-Stable tag: 0.4
+Stable tag: 0.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -44,6 +44,9 @@ If `SCRIPT_DEBUG` is set to true in the configuration file, then nothing will ha
 Yep, they're concatenated and minified now, too. To turn this functionality off, declare `STYLE_DEBUG` in `wp-config.php` and set it to true.
 
 == Changelog ==
+
+= 0.5 =
+* Remove `goto` statements.
 
 = 0.4 =
 * Add CSS minification.
