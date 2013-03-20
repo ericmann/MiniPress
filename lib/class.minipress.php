@@ -25,28 +25,24 @@ class MiniPress {
 			// First, let's check to see if we have write access.  At the moment, only direct access and fopen/fwrite are supported.
 			$write_method = get_filesystem_method( array(), false );
 			if ( $write_method != 'direct' && $write_method != 'ftpsockets' ) {
-				self::$fs = false;
-				goto output;
+				return self::$fs = false;
 			}
 
 			if ( false === ( $creds = @request_filesystem_credentials( '' ) ) ) {
 				// If we get here, we don't have credentials. Rather than trying to concatenate things when we can't save them
 				// back to the filesystem, we just bail.
-				self::$fs = false;
-				goto output;
+				return self::$fs = false;
 			}
 
 			// Now we have some credentials, try to get the wp_filesystem running
 			if ( ! WP_Filesystem( $creds ) ) {
 				// Our credentials were no good, so bail.
-				self::$fs = false;
-				goto output;
+				return self::$fs = false;
 			}
 
 			self::$fs = $wp_filesystem;
 		}
 
-		output:
 		return self::$fs;
 	}
 
